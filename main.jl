@@ -25,12 +25,12 @@ abstract type Force <: Entity end
 	entities::Vector{Entity} = []
 	state::Vector{Float64} = []
 	time::Float64 = 0.0
-	index_map::Dict{UUID, UnitRange{Int}} = Dict()
+	index_map::Dict{Entity, UnitRange{Int}} = Dict()
 end
 
 function get_state(system::System, entity::Entity,
 		system_state::Vector{Float64})
-	index_range = system.index_map[entity.uuid]
+	index_range = system.index_map[entity]
 	return system_state[index_range]
 end
 get_state(system::System,
@@ -38,11 +38,11 @@ get_state(system::System,
 
 function set_state!(system::System, entity::Entity,
 		entity_state::Vector{Float64})
-	index_range = system.index_map[entity.uuid]
+	index_range = system.index_map[entity]
 	system.state[index_range] = entity_state
 end
 
-function register_entity!(system::System, entity::Entity)
+function register!(system::System, entity::Entity)
 	push!(system.entities, entity)
 	entity isa Force && push!(system.forces, entity)
 	entity isa Body && push!(system.bodies, entity)
@@ -55,7 +55,7 @@ function register_entity!(system::System, entity::Entity)
 	index_range = index_start : index_stop
 
 	append!(system.state, zeros(n))
-	system.index_map[entity.uuid] = index_range
+	system.index_map[entity] = index_range
 end
 
 
@@ -76,7 +76,7 @@ function create_particle!(system::System;
 		mass::Float64 = 1.0,
 		)
 	particle = Particle(mass = mass)
-	register_entity!(system, particle)
+	register!(system, particle)
 
 	particle_state = [position; velocity]
 	set_state!(system, particle, particle_state)
@@ -115,7 +115,7 @@ end
 
 
 ###############################################################################
-# Force
+# Forces
 ###############################################################################
 
 # General
@@ -207,7 +207,7 @@ end
 
 function compute_force(system::System, force::ModulatedSpring,
 		particle::Particle, system_state::Vector{Float64})
-	acts_on(system, force, particle) || return O
+	particle in force.targets || return O
 
 	pa = force.targets[1]
 	pb = force.targets[2]
