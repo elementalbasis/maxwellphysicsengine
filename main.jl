@@ -45,7 +45,7 @@ function set_state!(system::System, entity::Entity,
 		system_state = system.state
 	end
 	index_range = system.index_map[entity]
-	system.state[index_range] = entity_state
+	system_state[index_range] = entity_state
 end
 
 function register!(system::System, entity::Entity)
@@ -63,6 +63,8 @@ function register!(system::System, entity::Entity)
 	append!(system.state, zeros(n))
 	system.index_map[entity] = index_range
 end
+
+entity_state_size(entity::Entity) = 0
 
 
 
@@ -96,7 +98,7 @@ function get_position(system::System, particle::Particle;
 	return particle_state[1:3]
 end
 
-function get_velocity(system::System, particle::Particle,
+function get_velocity(system::System, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	particle_state = get_state(system, particle, system_state = system_state)
 	return particle_state[4:6]
@@ -116,7 +118,23 @@ function set_velocity!(system::System, particle::Particle, velocity::Vector{Floa
 	set_state!(system, particle, particle_state, system_state = system_state)
 end
 
+function get_acceleration(system::System, body::Body;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	F = O
+	for force in system.forces
+		F += compute_force(system, force, body, system_state = system_state)
+	end
 
+	a = F / body.mass
+	return a
+end
+
+function get_state_flow(system::System, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	v = get_velocity(system, particle, system_state = system_state)
+	a = get_acceleration(system, particle, system_state = system_state)
+	return [v; a]
+end
 
 ###############################################################################
 # Forces
@@ -183,8 +201,8 @@ end
 # Modulated Spring
 
 @kwdef struct ModulatedSpring <: Force
-	k_max = 1
-	sensitivity = 1
+	k_max = 1000000
+	sensitivity = 0.001
 	length = 1
 	targets::Tuple{Particle, Particle}
 end
@@ -201,6 +219,20 @@ function set_modulated_spring_activation!(system::System,
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	set_state!(system, force, [activation], system_state = system_state)
 end
+
+function get_state_flow(system::System, force::ModulatedSpring;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	pa = force.targets[1]
+	pb = force.targets[2]
+	ra = get_position(system, pa, system_state = system_state)
+	rb = get_position(system, pb, system_state = system_state)
+
+	u = rb - ra
+	x = norm(u)
+
+	return [force.sensitivity * (x - force.length)]
+end
+
 
 function compute_force(system::System, force::ModulatedSpring,
 		particle::Particle;
@@ -220,7 +252,7 @@ function compute_force(system::System, force::ModulatedSpring,
 					    system_state = system_state)
 	k = logistic(q)
 
-	f = k * x
+	f = k * x * n
 
 	return Dict(pa => f, pb => -f)[particle]
 end
@@ -232,4 +264,29 @@ end
 # Solver
 ###############################################################################
 
+function get_state_flow(system::System;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	n = length(system.state)
+	system_state_flow = zeros(n)
+	for entity in keys(system.index_map)
+		entity_state_flow = get_state_flow(system, entity,
+						   system_state = system_state)
+		set_state!(system, entity, entity_state_flow,
+			   system_state = system_state_flow)
+	end
+	return system_state_flow
+end
 
+function ODE_function(system_state::Vector{Float64}, system::System, t::Float64)
+	return get_state_flow(system, system_state = system_state)
+end
+
+function update(system::System, time_increment)
+	tspan = (system.time, system.time + time_increment)
+	prob = ODEProblem(ODE_function, system.state, tspan, system)
+	sol = solve(prob)
+	system.time += time_increment
+	system.state = sol(system.time)
+
+	return sol
+end
