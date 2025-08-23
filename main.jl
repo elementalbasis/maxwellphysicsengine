@@ -209,8 +209,8 @@ end
 # Modulated Spring
 
 @kwdef struct ModulatedSpring <: Force
-	k_max = 1000000
-	sensitivity = 0.001
+	k_max = 10
+	sensitivity = 0.01
 	length = 1
 	targets::Tuple{Particle, Particle}
 end
@@ -258,7 +258,7 @@ function compute_force(system::System, force::ModulatedSpring,
 
 	q = get_modulated_spring_activation(system, force,
 					    system_state = system_state)
-	k = logistic(q)
+	k = force.k_max * logistic(q)
 
 	f = k * x * n
 

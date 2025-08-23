@@ -2,14 +2,14 @@ include("main.jl")
 
 S = System()
 c = create_particle!(S, is_stationary = true)
-p = create_particle!(S, mass = 1000.0)
+p = create_particle!(S, mass = 1.0)
 
 G = UniformGravity()
 D = LinearDrag()
 F = ModulatedSpring(targets = (c, p))
 register!(S, G, D, F)
 
-T = 3600*10
+T = 3600
 fps = 60
 delta_t = 1
 
