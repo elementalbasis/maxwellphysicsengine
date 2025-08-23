@@ -44,16 +44,11 @@ end
 
 function register_entity!(system::System, entity::Entity)
 	push!(system.entities, entity)
-	if entity isa Force
-		push!(system.forces, entity)
-	elseif entity isa Body
-		push!(system.bodies, entity)
-	end
+	entity isa Force && push!(system.forces, entity)
+	entity isa Body && push!(system.bodies, entity)
 
 	n = entity_state_size(entity)
-	if n == 0
-		return
-	end
+	n == 0 && return
 
 	index_start = length(system.state) + 1
 	index_stop = index_start + n - 1
@@ -125,10 +120,8 @@ end
 
 # General
 
-compute_force(system::System,
-	      force::Force,
-	      particle::Particle) = compute_force(system, force, particle,
-						  system.state)
+compute_force(system::System, force::Force,
+	      body::Body) = compute_force(system, force, body, system.state)
 
 
 
@@ -137,12 +130,12 @@ compute_force(system::System,
 @kwdef struct UniformGravity <: Force
 	g = 9.8
 	direction = -Z
+	targets = :all
 end
 
-acts_on(system::System, force::UniformGravity, particle::Particle) = true
-function compute_force(system::System, force::UniformGravity, particle::Particle,
+function compute_force(system::System, force::UniformGravity, body::Body,
 		system_state::Vector{Float64})
-	return particle.mass * force.g * force.direction
+	return body.mass * force.g * force.direction
 end
 
 
@@ -151,11 +144,82 @@ end
 
 @kwdef struct LinearDrag <: Force
 	b = 1
+	targets = :all
 end
 
-acts_on(system::System, force::LinearDrag, particle::Particle) = true
-function compute_force(system::System, force::LinearDrag, particle::Particle,
+function compute_force(system::System, force::LinearDrag, body::Body,
 		system_state::Vector{Float64})
-	v = get_velocity(system, particle, system_state)
+	v = get_velocity(system, body, system_state)
 	return -v * force.b
+end
+
+
+
+# Spring
+
+@kwdef struct Spring <: Force
+	k = 1
+	length = 0
+	targets::Tuple{Particle, Particle}
+end
+
+function compute_force(system::System, force::Spring, particle::Particle,
+		system_state::Vector{Float64})
+	particle in force.targets || return O
+
+	pa = force.targets[1]
+	pb = force.targets[2]
+	ra = get_position(system, pa, system_state)
+	rb = get_position(system, pb, system_state)
+	u = rb - ra
+	x = norm(u)
+	n = (x == 0) ? O : normalize(u)
+	f = force.k * (x - force.length) * n
+
+	return Dict(pa => f, pb => -f)[particle]
+end
+
+
+
+# Modulated Spring
+
+@kwdef struct ModulatedSpring <: Force
+	k_max = 1
+	sensitivity = 1
+	length = 1
+	targets::Tuple{Particle, Particle}
+end
+entity_state_size(force::ModulatedSpring) = 1
+
+function get_modulated_spring_activation(system::System, force::ModulatedSpring,
+		system_state::Vector{Float64})
+	entity_state = get_state(system, force, system_state)
+	return entity_state[1]
+end
+get_modulated_spring_activation(
+	system::System, force::ModulatedSpring) = get_state(
+		system, force, system.state)
+
+function set_modulated_spring_activation!(system::System,
+		force::ModulatedSpring, activation::Float64)
+	set_state!(system, force, [activation])
+end
+
+function compute_force(system::System, force::ModulatedSpring,
+		particle::Particle, system_state::Vector{Float64})
+	acts_on(system, force, particle) || return O
+
+	pa = force.targets[1]
+	pb = force.targets[2]
+	ra = get_position(system, pa, system_state)
+	rb = get_position(system, pb, system_state)
+
+	u = rb - ra
+	x = norm(u)
+	n = (x == 0) ? O : normalize(u)
+
+	k = get_modulated_spring_activation(system, force, system_state)
+	f = k * x
+
+	return Dict(pa => f, pb => -f)[particle]
 end
