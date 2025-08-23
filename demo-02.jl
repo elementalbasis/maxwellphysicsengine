@@ -1,7 +1,7 @@
 include("Mektis.jl")
 
-N_x = 20
-N_y = 20
+N_x = 30
+N_y = 30
 R = 3
 beta = 10
 k_max = 1000
@@ -44,27 +44,25 @@ function create_body(S::System)
 	return m_body
 end
 
-#=
 function create_bottom_ring(S::System)
 	m_bottom = []
 	for i_x = 1:N_x
 		th = 2*pi*i_x/N_x
-		p = create_particle!(S, position = R*X*cos(th)+R*Y*sin(th),
+		p = create_particle!(S, position = R/2*X*cos(th)+R/2*Y*sin(th);
 				    motion_lock = Z)
 		m_bottom = [m_bottom; p]
 	end
 	return m_bottom
 end
-=#
 
-function connect_particles(S::System, m_top, m_body)#, m_bottom)
+function connect_particles(S::System, m_top, m_body, m_bottom)
 	for i_x = 1:N_x
 		pa = m_top[i_x]
 		pb = m_body[i_x, 1]
 		F = ModulatedSpring(targets = (pa, pb), k_max = k_max, sensitivity = sensitivity)
 		register!(S, F)
 	end
-	#=
+#=
 	for i_y = 1:N_y
 		for i_x = 1:N_x
 			pa = m_body[i_x, i_y]
@@ -73,8 +71,7 @@ function connect_particles(S::System, m_top, m_body)#, m_bottom)
 			register!(S, F)
 		end
 	end
-	=#
-
+=#
 	for i_y = 1:(N_y-1)
 		for i_x = 1:N_x
 			pa = m_body[i_x,i_y]
@@ -88,20 +85,19 @@ function connect_particles(S::System, m_top, m_body)#, m_bottom)
 			register!(S, F)
 		end
 	end
-#=
+
 	for i_x = 1:N_x
 		pa = m_bottom[i_x]
 		pb = m_body[i_x, N_y]
-		F = ModulatedSpring(pa = pa, pb = pb, beta = beta)
+		F = ModulatedSpring(targets=(pa, pb), k_max = k_max, sensitivity = sensitivity)
 		register!(S, F)
 	end
-=#
 end
 
 m_top = create_top_ring(S)
 m_body = create_body(S)
-#m_bottom = create_bottom_ring(S)
-connect_particles(S, m_top, m_body)#, m_bottom)
+m_bottom = create_bottom_ring(S)
+connect_particles(S, m_top, m_body, m_bottom)
 
 G = UniformGravity()
 D = LinearDrag(b = beta)

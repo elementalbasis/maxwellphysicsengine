@@ -17,6 +17,7 @@ import Base: @kwdef
 	uuid::UUID = uuid4()
 	mass::Float64 = 1.0
 	is_stationary = false
+	motion_lock = O
 end
 entity_state_size(particle::Particle) = 6
 
@@ -69,7 +70,12 @@ function get_acceleration(system::System, body::Body;
 	end
 
 	a = F / body.mass
-	return a
+
+	if body.motion_lock == O
+		return a
+	else
+		return dot(a, body.motion_lock) * body.motion_lock / norm(body.motion_lock)^2
+	end
 end
 
 function get_state_flow(system::System, particle::Particle;
