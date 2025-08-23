@@ -2,6 +2,7 @@ using DifferentialEquations
 using LinearAlgebra
 using Printf
 using StaticArrays
+using StatsFuns
 using UUIDs
 import Base: @kwdef
 
@@ -28,16 +29,21 @@ abstract type Force <: Entity end
 	index_map::Dict{Entity, UnitRange{Int}} = Dict()
 end
 
-function get_state(system::System, entity::Entity,
-		system_state::Vector{Float64})
+function get_state(system::System, entity::Entity;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	if system_state == nothing
+		system_state = system.state
+	end
 	index_range = system.index_map[entity]
 	return system_state[index_range]
 end
-get_state(system::System,
-	  entity::Entity) = get_state(system, entity, system.state)
 
 function set_state!(system::System, entity::Entity,
-		entity_state::Vector{Float64})
+		entity_state::Vector{Float64};
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	if system_state == nothing
+		system_state = system.state
+	end
 	index_range = system.index_map[entity]
 	system.state[index_range] = entity_state
 end
@@ -84,32 +90,30 @@ function create_particle!(system::System;
 	return particle
 end
 
-function get_position(system::System, particle::Particle,
-		system_state::Vector{Float64})
-	particle_state = get_state(system, particle, system_state)
+function get_position(system::System, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	particle_state = get_state(system, particle, system_state = system_state)
 	return particle_state[1:3]
 end
-get_position(system::System,
-	     particle::Particle) = get_position(system, particle, system.state)
 
 function get_velocity(system::System, particle::Particle,
-		system_state::Vector{Float64})
-	particle_state = get_state(system, particle, system_state)
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	particle_state = get_state(system, particle, system_state = system_state)
 	return particle_state[4:6]
 end
-get_velocity(system::System,
-	     particle::Particle) = get_velocity(system, particle, system.state)
 
-function set_position!(system::System, particle::Particle, position::Vector{Float64})
-	particle_state = get_state(system, particle)
+function set_position!(system::System, particle::Particle, position::Vector{Float64};
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	particle_state = get_state(system, particle, system_state = system_state)
 	particle_state[1:3] = position
-	set_state!(system, particle, particle_state)
+	set_state!(system, particle, particle_state, system_state = system_state)
 end
 
-function set_velocity!(system::System, particle::Particle, velocity::Vector{Float64})
-	particle_state = get_state(system, particle)
+function set_velocity!(system::System, particle::Particle, velocity::Vector{Float64};
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	particle_state = get_state(system, particle, system_state = system_state)
 	particle_state[4:6] = velocity
-	set_state!(system, particle, particle_state)
+	set_state!(system, particle, particle_state, system_state = system_state)
 end
 
 
@@ -117,11 +121,6 @@ end
 ###############################################################################
 # Forces
 ###############################################################################
-
-# General
-
-compute_force(system::System, force::Force,
-	      body::Body) = compute_force(system, force, body, system.state)
 
 
 
@@ -133,8 +132,8 @@ compute_force(system::System, force::Force,
 	targets = :all
 end
 
-function compute_force(system::System, force::UniformGravity, body::Body,
-		system_state::Vector{Float64})
+function compute_force(system::System, force::UniformGravity, body::Body;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
 	return body.mass * force.g * force.direction
 end
 
@@ -147,9 +146,9 @@ end
 	targets = :all
 end
 
-function compute_force(system::System, force::LinearDrag, body::Body,
-		system_state::Vector{Float64})
-	v = get_velocity(system, body, system_state)
+function compute_force(system::System, force::LinearDrag, body::Body;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	v = get_velocity(system, body, system_state = system_state)
 	return -v * force.b
 end
 
@@ -163,14 +162,14 @@ end
 	targets::Tuple{Particle, Particle}
 end
 
-function compute_force(system::System, force::Spring, particle::Particle,
-		system_state::Vector{Float64})
+function compute_force(system::System, force::Spring, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
 	particle in force.targets || return O
 
 	pa = force.targets[1]
 	pb = force.targets[2]
-	ra = get_position(system, pa, system_state)
-	rb = get_position(system, pb, system_state)
+	ra = get_position(system, pa, system_state = system_state)
+	rb = get_position(system, pb, system_state = system_state)
 	u = rb - ra
 	x = norm(u)
 	n = (x == 0) ? O : normalize(u)
@@ -191,35 +190,46 @@ end
 end
 entity_state_size(force::ModulatedSpring) = 1
 
-function get_modulated_spring_activation(system::System, force::ModulatedSpring,
-		system_state::Vector{Float64})
-	entity_state = get_state(system, force, system_state)
+function get_modulated_spring_activation(system::System, force::ModulatedSpring;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	entity_state = get_state(system, force, system_state = system_state)
 	return entity_state[1]
 end
-get_modulated_spring_activation(
-	system::System, force::ModulatedSpring) = get_state(
-		system, force, system.state)
 
 function set_modulated_spring_activation!(system::System,
-		force::ModulatedSpring, activation::Float64)
-	set_state!(system, force, [activation])
+		force::ModulatedSpring, activation::Float64;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	set_state!(system, force, [activation], system_state = system_state)
 end
 
 function compute_force(system::System, force::ModulatedSpring,
-		particle::Particle, system_state::Vector{Float64})
+		particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
 	particle in force.targets || return O
 
 	pa = force.targets[1]
 	pb = force.targets[2]
-	ra = get_position(system, pa, system_state)
-	rb = get_position(system, pb, system_state)
+	ra = get_position(system, pa, system_state = system_state)
+	rb = get_position(system, pb, system_state = system_state)
 
 	u = rb - ra
 	x = norm(u)
 	n = (x == 0) ? O : normalize(u)
 
-	k = get_modulated_spring_activation(system, force, system_state)
+	q = get_modulated_spring_activation(system, force,
+					    system_state = system_state)
+	k = logistic(q)
+
 	f = k * x
 
 	return Dict(pa => f, pb => -f)[particle]
 end
+
+
+
+
+###############################################################################
+# Solver
+###############################################################################
+
+
