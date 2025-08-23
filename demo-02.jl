@@ -1,4 +1,4 @@
-include("main.jl")
+include("Mektis.jl")
 
 N_x = 20
 N_y = 20
