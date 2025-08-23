@@ -20,16 +20,21 @@ abstract type Body <: Entity end
 abstract type Force <: Entity end
 
 @kwdef mutable struct System
+	forces::Vector{Force} = []
+	bodies::Vector{Body} = []
 	entities::Vector{Entity} = []
 	state::Vector{Float64} = []
 	time::Float64 = 0.0
 	index_map::Dict{UUID, UnitRange{Int}} = Dict()
 end
 
-function get_state(system::System, entity::Entity)
+function get_state(system::System, entity::Entity,
+		system_state::Vector{Float64})
 	index_range = system.index_map[entity.uuid]
-	return system.state[index_range]
+	return system_state[index_range]
 end
+get_state(system::System,
+	  entity::Entity) = get_state(system, entity, system.state)
 
 function set_state!(system::System, entity::Entity,
 		entity_state::Vector{Float64})
@@ -39,6 +44,11 @@ end
 
 function register_entity!(system::System, entity::Entity)
 	push!(system.entities, entity)
+	if entity isa Force
+		push!(system.forces, entity)
+	elseif entity isa Body
+		push!(system.bodies, entity)
+	end
 
 	n = entity_state_size(entity)
 	if n == 0
@@ -52,6 +62,7 @@ function register_entity!(system::System, entity::Entity)
 	append!(system.state, zeros(n))
 	system.index_map[entity.uuid] = index_range
 end
+
 
 
 ###############################################################################
@@ -78,15 +89,21 @@ function create_particle!(system::System;
 	return particle
 end
 
-function get_position(system::System, particle::Particle)
-	particle_state = get_state(system, particle)
+function get_position(system::System, particle::Particle,
+		system_state::Vector{Float64})
+	particle_state = get_state(system, particle, system_state)
 	return particle_state[1:3]
 end
+get_position(system::System,
+	     particle::Particle) = get_position(system, particle, system.state)
 
-function get_velocity(system::System, particle::Particle)
-	particle_state = get_state(system, particle)
+function get_velocity(system::System, particle::Particle,
+		system_state::Vector{Float64})
+	particle_state = get_state(system, particle, system_state)
 	return particle_state[4:6]
 end
+get_velocity(system::System,
+	     particle::Particle) = get_velocity(system, particle, system.state)
 
 function set_position!(system::System, particle::Particle, position::Vector{Float64})
 	particle_state = get_state(system, particle)
@@ -98,4 +115,47 @@ function set_velocity!(system::System, particle::Particle, velocity::Vector{Floa
 	particle_state = get_state(system, particle)
 	particle_state[4:6] = velocity
 	set_state!(system, particle, particle_state)
+end
+
+
+
+###############################################################################
+# Force
+###############################################################################
+
+# General
+
+compute_force(system::System,
+	      force::Force,
+	      particle::Particle) = compute_force(system, force, particle,
+						  system.state)
+
+
+
+# Uniform Gravity
+
+@kwdef struct UniformGravity <: Force
+	g = 9.8
+	direction = -Z
+end
+
+acts_on(system::System, force::UniformGravity, particle::Particle) = true
+function compute_force(system::System, force::UniformGravity, particle::Particle,
+		system_state::Vector{Float64})
+	return particle.mass * force.g * force.direction
+end
+
+
+
+# Linear Drag
+
+@kwdef struct LinearDrag <: Force
+	b = 1
+end
+
+acts_on(system::System, force::LinearDrag, particle::Particle) = true
+function compute_force(system::System, force::LinearDrag, particle::Particle,
+		system_state::Vector{Float64})
+	v = get_velocity(system, particle, system_state)
+	return -v * force.b
 end
