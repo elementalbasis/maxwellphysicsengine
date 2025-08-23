@@ -85,12 +85,12 @@ end
 # Rigid Bodies
 ###############################################################################
 
-
 @kwdef struct RigidBody <: Body
 	uuid::UUID = uuid4()
 	mass::Float64 = 1.0
 	Jb::Matrix{Float64} = Matrix{Float64}(I, 3, 3)
 	invJb::Matrix{Float64} = Matrix{Float64}(I, 3, 3)
+	anchors::Vector{Particle} = []
 	is_stationary = false
 end
 entity_state_size(rb::RigidBody) = 13
@@ -129,7 +129,7 @@ end
 function get_orientation(system::System, rb::RigidBody;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	rb_state = get_state(system, rb, system_state = system_state)
-	return UnitQuaternion(rb_state[7:10])
+	return UnitQuaternion{Float64}(rb_state[7:10])
 end
 
 function get_angular_velocity(system::System, rb::RigidBody;
@@ -167,4 +167,34 @@ function set_angular_velocity!(system::System, rb::RigidBody,
 	rb_state = get_state(system, rb, system_state = system_state)
 	rb_state[11:13] = angular_velocity
 	set_state!(system, rb, rb_state, system_state = system_state)
+end
+
+
+
+###############################################################################
+# Anchors
+###############################################################################
+
+
+@kwdef struct Anchor <: Body
+	uuid::UUID = uuid4()
+	body::Union{Nothing,Body} = nothing
+	relative_position::Vector{Float64} = O
+end
+entity_state_size(rb::RigidBody) = 0
+
+function get_position(system::System, anchor::Anchor;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	body_position = get_position(system, anchor.body; system_state)
+	body_orientation = get_orientation(system, anchor.body; system_state)
+	return body_position + body_orientation * anchor.relative_position
+end
+
+function get_velocity(system::System, anchor::Anchor;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	body_velocity = get_velocity(system, anchor.body; system_state)
+	body_orientation = get_orientation(system, anchor.body; system_state)
+	body_angular_velocity = get_angular_velocity(system, anchor.body; system_state)
+	return body_velocity + cross(body_orientation * body_angular_velocity,
+				     body_orientation * anchor.relative_position)
 end
