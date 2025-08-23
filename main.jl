@@ -64,6 +64,12 @@ function register!(system::System, entity::Entity)
 	system.index_map[entity] = index_range
 end
 
+function register!(system::System, entities::Entity...)
+	for e in entities
+		register!(system, e)
+	end
+end
+
 entity_state_size(entity::Entity) = 0
 
 
@@ -75,15 +81,16 @@ entity_state_size(entity::Entity) = 0
 @kwdef struct Particle <: Body
 	uuid::UUID = uuid4()
 	mass::Float64 = 1.0
+	is_stationary = false
 end
 entity_state_size(particle::Particle) = 6
 
 function create_particle!(system::System;
 		position::Vector{Float64} = O,
 		velocity::Vector{Float64} = O,
-		mass::Float64 = 1.0,
+		kwargs...
 		)
-	particle = Particle(mass = mass)
+	particle = Particle(;kwargs...)
 	register!(system, particle)
 
 	particle_state = [position; velocity]
@@ -120,6 +127,7 @@ end
 
 function get_acceleration(system::System, body::Body;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
+	body.is_stationary && return O
 	F = O
 	for force in system.forces
 		F += compute_force(system, force, body, system_state = system_state)
@@ -281,7 +289,7 @@ function ODE_function(system_state::Vector{Float64}, system::System, t::Float64)
 	return get_state_flow(system, system_state = system_state)
 end
 
-function update(system::System, time_increment)
+function update!(system::System, time_increment)
 	tspan = (system.time, system.time + time_increment)
 	prob = ODEProblem(ODE_function, system.state, tspan, system)
 	sol = solve(prob)
