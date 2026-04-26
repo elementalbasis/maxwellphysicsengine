@@ -1,4 +1,4 @@
-include("Mektis.jl")
+include("Main.jl")
 
 S = System()
 c = create_particle!(S, is_stationary = true)
