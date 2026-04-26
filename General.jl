@@ -20,10 +20,12 @@ Z = [0.0, 0.0, 1.0]
 abstract type Entity end
 abstract type Body <: Entity end
 abstract type Force <: Entity end
+abstract type Impulse <: Entity end
 entity_state_size(entity::Entity) = 0
 
 @kwdef mutable struct System
 	forces::Vector{Force} = []
+	impulses::Vector{Impulse} = []
 	bodies::Vector{Body} = []
 	entities::Vector{Entity} = []
 	state::Vector{Float64} = []

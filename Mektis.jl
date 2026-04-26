@@ -9,4 +9,5 @@ import Base: @kwdef
 include("./General.jl")
 include("./Bodies.jl")
 include("./Forces.jl")
+include("./Impulses.jl")
 include("./Solver.jl")

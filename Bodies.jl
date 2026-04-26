@@ -16,6 +16,7 @@ import Base: @kwdef
 @kwdef struct Particle <: Body
 	uuid::UUID = uuid4()
 	mass::Float64 = 1.0
+	radius::Float64 = 0.0
 	is_stationary = false
 	motion_lock = O
 end
