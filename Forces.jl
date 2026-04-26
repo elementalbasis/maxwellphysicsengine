@@ -70,6 +70,56 @@ end
 
 
 
+# Particle Contact
+
+@kwdef struct ParticleContact <: Force
+	k = 1
+end
+
+
+function compute_force(system::System, force::ParticleContact, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	ra = get_position(system, particle, system_state = system_state)
+	Ra = particle.radius
+	F = O
+	for pb in system.bodies
+		rb = get_position(system, pb, system_state = system_state)
+		Rb = particle.radius
+		R = Ra + Rb
+		u = rb - ra
+		d = norm(u)
+		n = (d == 0) ? O : normalize(u)
+		if d < R
+			F += force.k * (-n) * (R - d)
+		end
+	end
+	return F
+end
+
+
+
+# Wall Contact
+
+# This is a plane that has an allowed side and a prohibited side
+@kwdef struct WallContact <: Force
+	k = 1
+	n = O # A unit vector that points in the direction of the allowed side
+	p = O # A point on the plane
+end
+
+function compute_force(system::System, force::WallContact, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	ra = get_position(system, particle, system_state = system_state)
+	Ra = particle.radius
+	s = dot(force.n, (ra - force.p))
+	if (s > 0)
+		return O
+	else
+		return force.n * (-s) * force.k
+	end
+end
+
+
 # Modulated Spring
 
 @kwdef struct ModulatedSpring <: Force
