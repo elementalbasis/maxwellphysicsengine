@@ -176,6 +176,24 @@ function set_angular_velocity!(system::System, rb::RigidBody,
 	set_state!(system, rb, rb_state, system_state = system_state)
 end
 
+function get_total_kinetic_energy(system::System;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	K = 0
+	for b in system.bodies
+		v = get_velocity(system, b, system_state = system_state)
+		m = b.mass
+		K += 1/2 * m * dot(v,v)
+	end
+
+	return K
+end
+
+function get_average_kinetic_energy(system::System;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	K = get_total_kinetic_energy(system, system_state = system_state)
+	N = length(system.bodies)
+	return K / N
+end
 
 
 ###############################################################################
@@ -204,4 +222,87 @@ function get_velocity(system::System, anchor::Anchor;
 	body_angular_velocity = get_angular_velocity(system, anchor.body; system_state)
 	return body_velocity + cross(body_orientation * body_angular_velocity,
 				     body_orientation * anchor.relative_position)
+end
+
+
+
+###############################################################################
+# CHUNKS
+###############################################################################
+
+@kwdef mutable struct Chunks <: Entity
+	cell_size::Float64
+	cells::Dict{Tuple{Int,Int,Int}, Vector{Particle}} = Dict{Tuple{Int,Int,Int}, Vector{Particle}}()
+	is_current::Bool = false
+	current_state::Union{Nothing,Vector{Float64}} = nothing
+end
+
+function cell_address(chunks::Chunks, position::Vector{Float64})
+	return (
+		floor(Int, position[1] / chunks.cell_size),
+		floor(Int, position[2] / chunks.cell_size),
+		floor(Int, position[3] / chunks.cell_size),
+		)
+end
+
+function reset!(chunks::Chunks)
+	for particles in values(chunks.cells)
+		empty!(particles)
+	end
+end
+
+function ensure_updated!(chunks::Chunks, system::System;
+        system_state::Union{Vector{Float64},Nothing} = nothing)
+
+    if system_state === nothing
+        system_state = system.state
+    end
+
+    if chunks.is_current && chunks.current_state === system_state
+        return
+    end
+
+    update!(chunks, system, system_state = system_state)
+
+    chunks.is_current = true
+    chunks.current_state = system_state
+end
+
+function update!(chunks::Chunks, system::System;
+        system_state::Union{Vector{Float64},Nothing} = nothing)
+
+    reset!(chunks)
+
+    for body in system.bodies
+        body isa Particle || continue
+
+        r = get_position(system, body, system_state = system_state)
+        addr = cell_address(chunks, r)
+
+        if !haskey(chunks.cells, addr)
+            chunks.cells[addr] = Particle[]
+        end
+
+        push!(chunks.cells[addr], body)
+    end
+end
+
+function nearby_particles(chunks::Chunks, particle::Particle, system::System;
+        system_state::Union{Vector{Float64},Nothing} = nothing)
+
+    r = get_position(system, particle, system_state = system_state)
+    cx, cy, cz = cell_address(chunks, r)
+
+    particles = Particle[]
+
+    for dx in -1:1
+        for dy in -1:1
+            for dz in -1:1
+                addr = (cx + dx, cy + dy, cz + dz)
+                append!(particles, get(chunks.cells, addr, Particle[]))
+            end
+        end
+    end
+
+    return particles
 end

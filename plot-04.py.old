@@ -1,0 +1,88 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.animation import FuncAnimation
+
+df = pd.read_csv("out.tsv", sep="\t", nrows = 30000000)
+
+# Box limits
+L = 1.1
+xmin, xmax = -L, L
+ymin, ymax = -L, L
+
+# Choose 10 particles at random by id
+rng = np.random.default_rng(12345)  # remove seed for different particles each run
+all_ids = df["id"].unique()
+red_ids = set(rng.choice(all_ids, size=min(1, len(all_ids)), replace=False))
+
+# Precompute frames
+frames = []
+for t, d in df.groupby("t", sort=True):
+    xy = d[["x", "y"]].to_numpy()
+
+    colors = np.full((len(d), 4), [0, 0, 1, 1.0])  # blue
+    colors[d["id"].isin(red_ids).to_numpy()] = [1, 0, 0, 1.0]  # red
+
+    # Total kinetic energy, assuming mass m = 1
+    # Includes x, y, and z velocity components
+    K = 0.5 * (d["vx"]**2 + d["vy"]**2 + d["vz"]**2).sum() * 1e-3
+
+    frames.append((t, xy, colors, K))
+
+fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+
+scat = ax.scatter([], [], s=1)
+
+info_text = ax.text(
+    0.03, 0.97, "",
+    transform=ax.transAxes,
+    ha="left",
+    va="top",
+    fontsize=10,
+)
+
+ax.set_xlim(xmin, xmax)
+ax.set_ylim(ymin, ymax)
+ax.set_aspect("equal", adjustable="box")
+
+# Remove labels/ticks so they do not push the box off-center
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_xlabel("")
+ax.set_ylabel("")
+ax.set_title("")
+
+# Center the square plotting box inside the square video frame
+ax.set_position([0.08, 0.08, 0.84, 0.84])
+
+def init():
+    scat.set_offsets(np.empty((0, 2)))
+    info_text.set_text("")
+    return scat, info_text
+
+def update(frame):
+    t, xy, colors, K = frames[frame]
+
+    scat.set_offsets(xy)
+    scat.set_facecolors(colors)
+
+    info_text.set_text(f"t = {t:.3f} seconds\nK = {K*1:.1f} joules")
+
+    return scat, info_text
+
+ani = FuncAnimation(
+    fig,
+    update,
+    frames=len(frames),
+    init_func=init,
+    interval=33,
+    blit=True,
+)
+
+ani.save(
+    "gas.mp4",
+    fps=60,
+    dpi=150,
+    bitrate=1800,
+    extra_args=["-pix_fmt", "yuv420p"],
+)

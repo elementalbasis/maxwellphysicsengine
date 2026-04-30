@@ -74,15 +74,19 @@ end
 
 @kwdef struct ParticleContact <: Force
 	k = 1
+	chunks::Chunks
 end
 
 
 function compute_force(system::System, force::ParticleContact, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
+	ensure_updated!(force.chunks, system, system_state = system_state)
+
 	ra = get_position(system, particle, system_state = system_state)
 	Ra = particle.radius
 	F = O
-	for pb in system.bodies
+	neighborhood = nearby_particles(force.chunks, particle, system, system_state = system_state)
+	for pb in neighborhood
 		rb = get_position(system, pb, system_state = system_state)
 		Rb = particle.radius
 		R = Ra + Rb
@@ -118,6 +122,55 @@ function compute_force(system::System, force::WallContact, particle::Particle;
 		return force.n * (-s) * force.k
 	end
 end
+
+
+
+# Modulated Wall Contact
+
+# This is a plane that has an allowed side and a prohibited side
+@kwdef struct ModulatedWallContact <: Force
+	k = 1
+	b_max = 0.001
+	sensitivity = 0.0001
+	energy_target = 0.01
+	n = O # A unit vector that points in the direction of the allowed side
+	p = O # A point on the plane
+end
+entity_state_size(force::ModulatedWallContact) = 1
+
+function get_modulated_wall_contact_activation(system::System, force::ModulatedWallContact;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	entity_state = get_state(system, force, system_state = system_state)
+	return entity_state[1]
+end
+
+function set_modulated_wall_contact_activation!(system::System,
+		force::ModulatedWallContact, activation::Float64;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	set_state!(system, force, [activation], system_state = system_state)
+end
+
+function get_state_flow(system::System, force::ModulatedWallContact;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	K = get_average_kinetic_energy(system, system_state = system_state)
+	return [force.sensitivity * (K - force.energy_target)]
+end
+
+function compute_force(system::System, force::ModulatedWallContact, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	ra = get_position(system, particle, system_state = system_state)
+	va = get_velocity(system, particle, system_state = system_state)
+	Ra = particle.radius
+	s = dot(force.n, (ra - force.p))
+	q = get_modulated_wall_contact_activation(system, force, system_state = system_state)
+	b = force.b_max * logistic(q)
+	if (s > 0)
+		return O
+	else
+		return force.n * (-s) * force.k - b * va
+	end
+end
+
 
 
 # Modulated Spring

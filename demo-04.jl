@@ -1,30 +1,34 @@
 include("Main.jl")
 
-N = 500
-r = 0.01
-m = 0.001
+N = 3000
+r = 1e-2
+m = 1e-3
 k = 100
 
 S = System()
 
 for i = 1:N
-	create_particle!(S, radius = r, mass = m, velocity = 10*X*i/N, position = Z * i/N - Y*i/N)
+	if i == N
+		create_particle!(S, radius = r, mass = m, velocity = 10*Y*i/N)
+	else
+		create_particle!(S, radius = r, mass = m, velocity = (5 + i/N)*X + Z * i/N, position = i/N * Z)
+	end
 end
 
-A = WallContact(n = X, p = -X, k = k)
-B = WallContact(n = Y, p = -Y, k = k)
-C = WallContact(n = Z, p = -Z, k = k)
-D = WallContact(n = -X, p = X, k = k)
-E = WallContact(n = -Y, p = Y, k = k)
-F = WallContact(n = -Z, p = Z, k = k)
-G = ParticleContact(k = k)
+A = ModulatedWallContact(n = X, p = -X, k = k)
+B = ModulatedWallContact(n = Y, p = -Y, k = k)
+C = ModulatedWallContact(n = Z, p = -Z, k = k)
+D = ModulatedWallContact(n = -X, p = X, k = k)
+E = ModulatedWallContact(n = -Y, p = Y, k = k)
+F = ModulatedWallContact(n = -Z, p = Z, k = k)
+G = ParticleContact(k = k, chunks = Chunks(cell_size = 100 * r))
 register!(S, A, B, C, D, E, F, G)
 
 
-T = 3600 * 10
+T = 3600
 fps = 1200
 #sol = update!(S, T)
-delta_t = 0.1
+delta_t = 0.01
 
 println("id\tt\tx\ty\tz\tvx\tvy\tvz")
 while S.time <= T
