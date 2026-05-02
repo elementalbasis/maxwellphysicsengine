@@ -210,6 +210,29 @@ function get_state_flow(system::System, force::ModulatedSpring;
 	return [force.sensitivity * (x - force.length)]
 end
 
+function get_q_state(system::System, force::ModulatedSpring;
+	    system_state::Union{Vector{Float64},Nothing} = nothing)
+	return [get_modulated_spring_activation(system, force, system_state = system_state)]
+end
+
+function get_v_state(system::System, force::ModulatedSpring;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	return get_state_flow(system, force, system_state = system_state)
+end
+
+function get_a_state(system::System, force::ModulatedSpring;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	pa = force.targets[1]
+	pb = force.targets[2]
+	va = get_velocity(system, pa, system_state = system_state)
+	vb = get_velocity(system, pb, system_state = system_state)
+
+	u = vb - va
+	v = norm(u)
+
+	return [force.sensitivity * v]
+end
+
 
 function compute_force(system::System, force::ModulatedSpring,
 		particle::Particle;

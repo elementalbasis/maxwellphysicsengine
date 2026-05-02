@@ -79,3 +79,76 @@ function register!(system::System, entities::Entity...)
 		register!(system, e)
 	end
 end
+
+function get_q_state(system::System, system_state::Union{Vector{Float64},Nothing} = nothing)
+	if system_state == nothing
+		system_state = system.state
+	end
+
+	q_state = Float64[]
+	for entity in system.entities
+		haskey(system.index_map, entity) || continue
+
+		q_state = [q_state; get_q_state(system, entity, system_state = system_state)]
+	end
+	return q_state
+end
+
+function get_v_state(system::System, system_state::Union{Vector{Float64},Nothing} = nothing)
+	if system_state == nothing
+		system_state = system.state
+	end
+
+	v_state = Float64[]
+	for entity in system.entities
+		haskey(system.index_map, entity) || continue
+
+		v_state = [v_state; get_v_state(system, entity, system_state = system_state)]
+	end
+	return v_state
+end
+
+function get_a_state(system::System;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	if system_state == nothing
+		system_state = system.state
+	end
+
+	a_state = Float64[]
+
+	for entity in keys(system.index_map)
+		apppend!(a_state, get_a_state(system, entity, system_state = system_state))
+	end
+
+	return a_state
+end
+
+function reconstruct_state(system::System, q_state, v_state)
+    state = Float64[]
+
+    iq = 1
+    iv = 1
+
+    for entity in system.entities
+        haskey(system.index_map, entity) || continue
+
+        # probe sizes using current system layout
+        q_entity = get_q_state(system, entity)
+        v_entity = get_v_state(system, entity)
+
+        nq = length(q_entity)
+        nv = length(v_entity)
+
+        if nq > 0
+            append!(state, q_state[iq:iq+nq-1])
+            iq += nq
+        end
+
+        if nv > 0
+            append!(state, v_state[iv:iv+nv-1])
+            iv += nv
+        end
+    end
+
+    return state
+end

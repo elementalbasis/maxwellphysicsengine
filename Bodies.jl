@@ -48,6 +48,16 @@ function get_velocity(system::System, particle::Particle;
 	return particle_state[4:6]
 end
 
+function get_q_state(system::System, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	return get_position(system, particle, system_state = system_state)
+end
+
+function get_v_state(system::System, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	return get_velocity(system, particle, system_state = system_state)
+end
+
 function set_position!(system::System, particle::Particle, position::Vector{Float64};
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	particle_state = get_state(system, particle, system_state = system_state)
@@ -84,6 +94,11 @@ function get_state_flow(system::System, particle::Particle;
 	v = get_velocity(system, particle, system_state = system_state)
 	a = get_acceleration(system, particle, system_state = system_state)
 	return [v; a]
+end
+
+function get_a_state(system::System, particle::Particle;
+		system_state::Union{Vector{Float64},Nothing} = nothing)
+	return get_acceleration(system, particle, system_state = system_state)
 end
 
 
