@@ -1,11 +1,12 @@
 include("Main.jl")
 
-N = 3000
+N = 100
 r = 1e-2
 m = 1e-3
 k = 100
 
 S = System()
+H = ChunkGrid(chunk_size = 10*r)
 
 for i = 1:N
 	if i == N
@@ -15,12 +16,12 @@ for i = 1:N
 	end
 end
 
-A = ModulatedWallContact(n = X, p = -X, k = k)
-B = ModulatedWallContact(n = Y, p = -Y, k = k)
-C = ModulatedWallContact(n = Z, p = -Z, k = k)
-D = ModulatedWallContact(n = -X, p = X, k = k)
-E = ModulatedWallContact(n = -Y, p = Y, k = k)
-F = ModulatedWallContact(n = -Z, p = Z, k = k)
+A = ModulatedWallContact(n = X, p = -X, k = k, chunk_grid = H)
+B = ModulatedWallContact(n = Y, p = -Y, k = k, chunk_grid = H)
+C = ModulatedWallContact(n = Z, p = -Z, k = k, chunk_grid = H)
+D = ModulatedWallContact(n = -X, p = X, k = k, chunk_grid = H)
+E = ModulatedWallContact(n = -Y, p = Y, k = k, chunk_grid = H)
+F = ModulatedWallContact(n = -Z, p = Z, k = k, chunk_grid = H)
 G = ParticleContact(k = k, chunks = Chunks(cell_size = 100 * r))
 register!(S, A, B, C, D, E, F, G)
 

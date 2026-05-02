@@ -21,15 +21,21 @@ abstract type Entity end
 abstract type Body <: Entity end
 abstract type Force <: Entity end
 abstract type Impulse <: Entity end
+abstract type Parameter <: Entity end
 entity_state_size(entity::Entity) = 0
 
 @kwdef mutable struct System
 	forces::Vector{Force} = []
 	impulses::Vector{Impulse} = []
 	bodies::Vector{Body} = []
+	parameters::Vector{Parameter} = []
 	entities::Vector{Entity} = []
+
+	evaluation_counter::Int64 = 0
+
 	state::Vector{Float64} = []
 	time::Float64 = 0.0
+	dt::Float64 = 1e-3
 	index_map::Dict{Entity, UnitRange{Int}} = Dict()
 end
 

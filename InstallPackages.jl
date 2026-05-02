@@ -5,6 +5,7 @@ packages = [
 	"StaticArrays",
 	"StatsFuns",
 	"Rotations",
+	"ArgParse",
 	]
 
 for package in packages

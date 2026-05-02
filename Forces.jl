@@ -74,21 +74,23 @@ end
 
 @kwdef struct ParticleContact <: Force
 	k = 1
-	chunks::Chunks
+	chunk_grid::Union{ChunkGrid,Nothing} = nothing
 end
 
 
 function compute_force(system::System, force::ParticleContact, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
-	ensure_updated!(force.chunks, system, system_state = system_state)
+	#if force.chunk_grid != nothing
+	#	ensure_updated!(force.chunk_grid, system, system_state = system_state)
+	#end
 
 	ra = get_position(system, particle, system_state = system_state)
 	Ra = particle.radius
 	F = O
-	neighborhood = nearby_particles(force.chunks, particle, system, system_state = system_state)
-	for pb in neighborhood
+	#neighborhood = nearby_particles(force.chunk_grid, particle, system, system_state = system_state)
+	for pb in system.bodies
 		rb = get_position(system, pb, system_state = system_state)
-		Rb = particle.radius
+		Rb = pb.radius
 		R = Ra + Rb
 		u = rb - ra
 		d = norm(u)
@@ -131,7 +133,7 @@ end
 @kwdef struct ModulatedWallContact <: Force
 	k = 1
 	b_max = 0.001
-	sensitivity = 0.0001
+	sensitivity = 0.001
 	energy_target = 0.01
 	n = O # A unit vector that points in the direction of the allowed side
 	p = O # A point on the plane

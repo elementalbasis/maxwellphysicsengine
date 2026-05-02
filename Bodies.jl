@@ -230,68 +230,68 @@ end
 # CHUNKS
 ###############################################################################
 
-@kwdef mutable struct Chunks <: Entity
-	cell_size::Float64
-	cells::Dict{Tuple{Int,Int,Int}, Vector{Particle}} = Dict{Tuple{Int,Int,Int}, Vector{Particle}}()
-	is_current::Bool = false
-	current_state::Union{Nothing,Vector{Float64}} = nothing
+@kwdef mutable struct ChunkGrid <: Entity
+	chunk_size::Float64 = 1.0
+	chunks::Dict{Tuple{Int,Int,Int}, Vector{Particle}} = Dict{Tuple{Int,Int,Int}, Vector{Particle}}()
+	evaluation_counter::Int64 = 0
 end
 
-function cell_address(chunks::Chunks, position::Vector{Float64})
+function chunk_address(chunk_grid::ChunkGrid, position::Vector{Float64})
 	return (
-		floor(Int, position[1] / chunks.cell_size),
-		floor(Int, position[2] / chunks.cell_size),
-		floor(Int, position[3] / chunks.cell_size),
+		floor(Int, position[1] / chunk_grid.chunk_size),
+		floor(Int, position[2] / chunk_grid.chunk_size),
+		floor(Int, position[3] / chunk_grid.chunk_size),
 		)
 end
 
-function reset!(chunks::Chunks)
-	for particles in values(chunks.cells)
+function reset!(chunk_grid::ChunkGrid)
+	for particles in values(chunk_grid.chunks)
 		empty!(particles)
 	end
 end
 
-function ensure_updated!(chunks::Chunks, system::System;
-        system_state::Union{Vector{Float64},Nothing} = nothing)
-
-    if system_state === nothing
-        system_state = system.state
-    end
-
-    if chunks.is_current && chunks.current_state === system_state
-        return
-    end
-
-    update!(chunks, system, system_state = system_state)
-
-    chunks.is_current = true
-    chunks.current_state = system_state
+function is_updated(chunk_grid::ChunkGrid, system::System)
+	return chunk_grid.evaluation_counter == system.evaluation_counter
 end
 
-function update!(chunks::Chunks, system::System;
+function ensure_updated!(chunk_grid::ChunkGrid, system::System;
         system_state::Union{Vector{Float64},Nothing} = nothing)
 
-    reset!(chunks)
-
-    for body in system.bodies
-        body isa Particle || continue
-
-        r = get_position(system, body, system_state = system_state)
-        addr = cell_address(chunks, r)
-
-        if !haskey(chunks.cells, addr)
-            chunks.cells[addr] = Particle[]
-        end
-
-        push!(chunks.cells[addr], body)
-    end
+	if !is_updated(chunk_grid, system)
+		update!(chunk_grid, system, system_state = system_state)
+	end
 end
 
-function nearby_particles(chunks::Chunks, particle::Particle, system::System;
+function update!(chunk_grid::ChunkGrid, system::System;
         system_state::Union{Vector{Float64},Nothing} = nothing)
+
+	reset!(chunk_grid)
+
+	for body in system.bodies
+		body isa Particle || continue
+
+		r = get_position(system, body, system_state = system_state)
+		addr = chunk_address(chunk_grid, r)
+
+		if !haskey(chunk_grid.chunks, addr)
+		    chunk_grid.chunks[addr] = Particle[]
+		end
+
+		push!(chunk_grid.chunks[addr], body)
+	end
+
+	chunk_grid.evaluation_counter += 1
+end
+
+function nearby_particles(chunk_grid::Union{ChunkGrid,Nothing}, particle::Particle, system::System;
+        system_state::Union{Vector{Float64},Nothing} = nothing)
+
+	if chunk_grid == nothing
+		return system.bodies
+	end
 
     r = get_position(system, particle, system_state = system_state)
-    cx, cy, cz = cell_address(chunks, r)
+    cx, cy, cz = chunk_address(chunk_grid, r)
 
     particles = Particle[]
 
@@ -299,7 +299,7 @@ function nearby_particles(chunks::Chunks, particle::Particle, system::System;
         for dy in -1:1
             for dz in -1:1
                 addr = (cx + dx, cy + dy, cz + dz)
-                append!(particles, get(chunks.cells, addr, Particle[]))
+                append!(particles, get(chunk_grid.chunks, addr, Particle[]))
             end
         end
     end

@@ -22,6 +22,9 @@ function get_state_flow(system::System;
 		set_state!(system, entity, entity_state_flow,
 			   system_state = system_state_flow)
 	end
+
+	system.evaluation_counter += 1
+
 	return system_state_flow
 end
 
@@ -32,7 +35,7 @@ end
 function update!(system::System, time_increment)
 	tspan = (system.time, system.time + time_increment)
 	prob = ODEProblem(ODE_function, system.state, tspan, system)
-	sol = solve(prob)
+	sol = solve(prob, VelocityVerlet(), dt = system.dt)
 	system.time += time_increment
 	system.state = sol(system.time)
 
