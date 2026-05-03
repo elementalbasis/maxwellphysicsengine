@@ -19,7 +19,10 @@ import Base: @kwdef
 @kwdef struct UniformGravity <: Force
 	g = 9.8
 	direction = -Z
-	targets = :all
+end
+
+function acts_on(system::System, force::UniformGravity, body::Body)
+	return true
 end
 
 function compute_force(system::System, force::UniformGravity, body::Body;
@@ -34,7 +37,10 @@ end
 
 @kwdef struct LinearDrag <: Force
 	b = 1
-	targets = :all
+end
+
+function acts_on(system::System, force::LinearDrag, body::Body)
+	return true
 end
 
 function compute_force(system::System, force::LinearDrag, body::Body;
@@ -52,6 +58,10 @@ end
 	k = 1
 	length = 0
 	targets::Tuple{Particle, Particle}
+end
+
+function acts_on(system::System, force::Spring, body::Body)
+	return body in force.targets
 end
 
 function compute_force(system::System, force::Spring, particle::Particle;
@@ -72,7 +82,7 @@ function compute_force(system::System, force::Spring, particle::Particle;
 end
 
 
-#=
+
 # Particle Contact
 
 @kwdef struct ParticleContact <: Force
@@ -80,19 +90,19 @@ end
 	chunk_grid::Union{ChunkGrid,Nothing} = nothing
 end
 
-
 function compute_force(system::System, force::ParticleContact, particle::Particle;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	#if force.chunk_grid != nothing
-	#	ensure_updated!(force.chunk_grid, system, system_state = system_state)
-	#end
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	if force.chunk_grid != nothing
+		ensure_updated!(force.chunk_grid, system, state = state)
+	end
 
-	ra = get_position(system, particle, system_state = system_state)
+	ra = get_position(system, particle, state = state)
 	Ra = particle.radius
 	F = O
-	#neighborhood = nearby_particles(force.chunk_grid, particle, system, system_state = system_state)
-	for pb in system.bodies
-		rb = get_position(system, pb, system_state = system_state)
+	neighborhood = nearby_particles(force.chunk_grid, particle, system, state = state)
+	for pb in neighborhood
+		rb = get_position(system, pb, state = state)
 		Rb = pb.radius
 		R = Ra + Rb
 		u = rb - ra
@@ -117,8 +127,9 @@ end
 end
 
 function compute_force(system::System, force::WallContact, particle::Particle;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	ra = get_position(system, particle, system_state = system_state)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	ra = get_position(system, particle, state = state)
 	Ra = particle.radius
 	s = dot(force.n, (ra - force.p))
 	if (s > 0)
@@ -128,7 +139,7 @@ function compute_force(system::System, force::WallContact, particle::Particle;
 	end
 end
 
-
+#=
 
 # Modulated Wall Contact
 

@@ -67,6 +67,8 @@ function ode_function!(a::Vector{Float64}, v::Vector{Float64}, q::Vector{Float64
 		range = system.index_map[entity]
 		a[range] .= get_acceleration(system, entity, state = state)
 	end
+
+	system.evaluation_counter += 1
 end
 
 function update!(system::System, time_increment)
@@ -84,6 +86,7 @@ function update!(system::System, time_increment)
 
 	system.time += time_increment
 	#system.state = sol(system.time)
+	system.state = get_state_from_solution(system, sol, system.time)
 
 	return sol
 end

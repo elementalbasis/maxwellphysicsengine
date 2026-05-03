@@ -36,11 +36,10 @@ end
 	forces::Vector{Force} = []
 	#impulses::Vector{Impulse} = []
 	bodies::Vector{Body} = []
-	#particles::Vector{Particle} = []
 	#parameters::Vector{Parameter} = []
 	entities::Vector{Entity} = []
 
-	#evaluation_counter::Int64 = 0
+	evaluation_counter::Int64 = 0
 
 	state::State = State()
 	time::Float64 = 0.0

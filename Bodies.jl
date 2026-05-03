@@ -275,7 +275,7 @@ function get_velocity(system::System, anchor::Anchor;
 	return body_velocity + cross(body_orientation * body_angular_velocity,
 				     body_orientation * anchor.relative_position)
 end
-
+=#
 
 
 ###############################################################################
@@ -297,9 +297,12 @@ function chunk_address(chunk_grid::ChunkGrid, position::Vector{Float64})
 end
 
 function reset!(chunk_grid::ChunkGrid)
+	#=
 	for particles in values(chunk_grid.chunks)
 		empty!(particles)
 	end
+	=#
+	empty!(chunk_grid.chunks)
 end
 
 function is_updated(chunk_grid::ChunkGrid, system::System)
@@ -307,22 +310,24 @@ function is_updated(chunk_grid::ChunkGrid, system::System)
 end
 
 function ensure_updated!(chunk_grid::ChunkGrid, system::System;
-        system_state::Union{Vector{Float64},Nothing} = nothing)
+#	system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 
 	if !is_updated(chunk_grid, system)
-		update!(chunk_grid, system, system_state = system_state)
+		update!(chunk_grid, system, state = state)
 	end
 end
 
 function update!(chunk_grid::ChunkGrid, system::System;
-        system_state::Union{Vector{Float64},Nothing} = nothing)
+#        system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 
 	reset!(chunk_grid)
 
 	for body in system.bodies
 		body isa Particle || continue
 
-		r = get_position(system, body, system_state = system_state)
+		r = get_position(system, body, state = state)
 		addr = chunk_address(chunk_grid, r)
 
 		if !haskey(chunk_grid.chunks, addr)
@@ -336,26 +341,26 @@ function update!(chunk_grid::ChunkGrid, system::System;
 end
 
 function nearby_particles(chunk_grid::Union{ChunkGrid,Nothing}, particle::Particle, system::System;
-        system_state::Union{Vector{Float64},Nothing} = nothing)
+#        system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 
 	if chunk_grid == nothing
 		return system.bodies
 	end
 
-    r = get_position(system, particle, system_state = system_state)
-    cx, cy, cz = chunk_address(chunk_grid, r)
+	r = get_position(system, particle, state = state)
+	cx, cy, cz = chunk_address(chunk_grid, r)
 
-    particles = Particle[]
+	particles = Particle[]
 
-    for dx in -1:1
-        for dy in -1:1
-            for dz in -1:1
-                addr = (cx + dx, cy + dy, cz + dz)
-                append!(particles, get(chunk_grid.chunks, addr, Particle[]))
-            end
-        end
-    end
+	for dx in -1:1
+		for dy in -1:1
+			for dz in -1:1
+				addr = (cx + dx, cy + dy, cz + dz)
+				append!(particles, get(chunk_grid.chunks, addr, Particle[]))
+			end
+		end
+	end
 
-    return particles
+	return particles
 end
-=#
