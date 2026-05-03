@@ -12,6 +12,7 @@ using DifferentialEquations
 # Solver
 ###############################################################################
 
+#=
 function get_state_flow(system::System;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	n = length(system.state)
@@ -55,21 +56,48 @@ function ODE_verlet_function(a_state, v_state, q_state, system::System, t)
 
     return nothing
 end
+=#
+
+function ode_function!(a::Vector{Float64}, v::Vector{Float64}, q::Vector{Float64}, system::System, t::Float64)
+	state = State(q = q, v = v, n = length(q))
+
+	for entity in system.entities
+		degrees_of_freedom(entity) == 0 && continue
+
+		range = system.index_map[entity]
+		a[range] .= get_acceleration(system, entity, state = state)
+	end
+end
 
 function update!(system::System, time_increment)
 	tspan = (system.time, system.time + time_increment)
-	q_state = get_q_state(system)
-	v_state = get_v_state(system)
+	#q_state = get_q_state(system)
+	#v_state = get_v_state(system)
+	q = system.state.q
+	v = system.state.v
 	#prob = ODEProblem(ODE_function, system.state, tspan, system)
 	#sol = solve(prob, VelocityVerlet(), dt = system.dt)
 	#sol = solve(prob)
-	
 
-	prob = SecondOrderODEProblem(ODE_verlet_function, get_v_state(system), get_q_state(system), tspan, system)
+	prob = SecondOrderODEProblem(ode_function!, v, q, tspan, system)
 	sol = solve(prob, VelocityVerlet(), dt = system.dt)
 
 	system.time += time_increment
-	system.state = sol(system.time)
+	#system.state = sol(system.time)
 
 	return sol
 end
+
+function get_state_from_solution(system::System, sol, t::Real)
+	v = sol(t).x[1]
+	q = sol(t).x[2]
+	return State(q = q, v = v, n = length(q))
+end
+
+#=
+function get_state_from_solution(system::System, sol, t::Real)
+	v = sol(t).x[1]
+	q = sol(t).x[2]
+	return reconstruct_state(system, q, v)
+end
+=#

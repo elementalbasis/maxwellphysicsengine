@@ -23,7 +23,8 @@ import Base: @kwdef
 end
 
 function compute_force(system::System, force::UniformGravity, body::Body;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 	return body.mass * force.g * force.direction
 end
 
@@ -37,8 +38,9 @@ end
 end
 
 function compute_force(system::System, force::LinearDrag, body::Body;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	v = get_velocity(system, body, system_state = system_state)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	v = get_velocity(system, body, state = state)
 	return -v * force.b
 end
 
@@ -53,23 +55,24 @@ end
 end
 
 function compute_force(system::System, force::Spring, particle::Particle;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 	particle in force.targets || return O
 
 	pa = force.targets[1]
 	pb = force.targets[2]
-	ra = get_position(system, pa, system_state = system_state)
-	rb = get_position(system, pb, system_state = system_state)
+	ra = get_position(system, pa, state = state)
+	rb = get_position(system, pb, state = state)
 	u = rb - ra
 	x = norm(u)
 	n = (x == 0) ? O : normalize(u)
 	f = force.k * (x - force.length) * n
 
-	return Dict(pa => f, pb => -f)[particle]
+	return f * Dict(pa => 1, pb => -1)[particle]
 end
 
 
-
+#=
 # Particle Contact
 
 @kwdef struct ParticleContact <: Force
@@ -256,3 +259,4 @@ function compute_force(system::System, force::ModulatedSpring,
 
 	return Dict(pa => f, pb => -f)[particle]
 end
+=#

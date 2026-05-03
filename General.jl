@@ -23,22 +23,32 @@ abstract type Force <: Entity end
 abstract type Impulse <: Entity end
 abstract type Parameter <: Entity end
 entity_state_size(entity::Entity) = 0
+degrees_of_freedom(entity::Entity) = 0
+
+@kwdef mutable struct State
+	q::Vector{Float64} = []
+	v::Vector{Float64} = []
+	n::Int64 = 0
+	#index_map::Dict{Entity, UnitRange{Int}} = Dict()
+end
 
 @kwdef mutable struct System
 	forces::Vector{Force} = []
-	impulses::Vector{Impulse} = []
+	#impulses::Vector{Impulse} = []
 	bodies::Vector{Body} = []
-	parameters::Vector{Parameter} = []
+	#particles::Vector{Particle} = []
+	#parameters::Vector{Parameter} = []
 	entities::Vector{Entity} = []
 
-	evaluation_counter::Int64 = 0
+	#evaluation_counter::Int64 = 0
 
-	state::Vector{Float64} = []
+	state::State = State()
 	time::Float64 = 0.0
 	dt::Float64 = 1e-3
 	index_map::Dict{Entity, UnitRange{Int}} = Dict()
 end
 
+#=
 function get_state(system::System, entity::Entity;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	if system_state == nothing
@@ -57,21 +67,24 @@ function set_state!(system::System, entity::Entity,
 	index_range = system.index_map[entity]
 	system_state[index_range] = entity_state
 end
+=#
 
 function register!(system::System, entity::Entity)
 	push!(system.entities, entity)
 	entity isa Force && push!(system.forces, entity)
 	entity isa Body && push!(system.bodies, entity)
 
-	n = entity_state_size(entity)
+	n = degrees_of_freedom(entity)
 	n == 0 && return
 
-	index_start = length(system.state) + 1
+	index_start = system.state.n + 1
 	index_stop = index_start + n - 1
 	index_range = index_start : index_stop
-
-	append!(system.state, zeros(n))
 	system.index_map[entity] = index_range
+
+	append!(system.state.q, zeros(n))
+	append!(system.state.v, zeros(n))
+	system.state.n += n
 end
 
 function register!(system::System, entities::Entity...)
@@ -80,6 +93,7 @@ function register!(system::System, entities::Entity...)
 	end
 end
 
+#=
 function get_q_state(system::System, system_state::Union{Vector{Float64},Nothing} = nothing)
 	if system_state == nothing
 		system_state = system.state
@@ -152,3 +166,4 @@ function reconstruct_state(system::System, q_state, v_state)
 
     return state
 end
+=#

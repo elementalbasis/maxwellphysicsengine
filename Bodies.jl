@@ -18,9 +18,10 @@ import Base: @kwdef
 	mass::Float64 = 1.0
 	radius::Float64 = 0.0
 	is_stationary = false
-	motion_lock = O
+	#motion_lock = O
 end
 entity_state_size(particle::Particle) = 6
+degrees_of_freedom(particle::Particle) = 3
 
 function create_particle!(system::System;
 		position::Vector{Float64} = O,
@@ -30,24 +31,42 @@ function create_particle!(system::System;
 	particle = Particle(;kwargs...)
 	register!(system, particle)
 
-	particle_state = [position; velocity]
-	set_state!(system, particle, particle_state)
+	#particle_state = [position; velocity]
+	#set_state!(system, particle, particle_state)
+	#system.state.n += degrees_of_freedom(particle)
+	range = system.index_map[particle]
+	system.state.q[range] = position
+	system.state.v[range] = velocity
 
 	return particle
 end
 
+
 function get_position(system::System, particle::Particle;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	particle_state = get_state(system, particle, system_state = system_state)
-	return particle_state[1:3]
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	if state == nothing
+		state = system.state
+	end
+	#particle_state = get_state(system, particle, system_state = system_state)
+	#return particle_state[1:3]
+	range = system.index_map[particle]
+	return state.q[range]
 end
 
 function get_velocity(system::System, particle::Particle;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	particle_state = get_state(system, particle, system_state = system_state)
-	return particle_state[4:6]
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	if state == nothing
+		state = system.state
+	end
+	#particle_state = get_state(system, particle, system_state = system_state)
+	#return particle_state[4:6]
+	range = system.index_map[particle]
+	return state.v[range]
 end
 
+#=
 function get_q_state(system::System, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	return get_position(system, particle, system_state = system_state)
@@ -57,38 +76,55 @@ function get_v_state(system::System, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	return get_velocity(system, particle, system_state = system_state)
 end
+=#
 
 function set_position!(system::System, particle::Particle, position::Vector{Float64};
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	particle_state = get_state(system, particle, system_state = system_state)
-	particle_state[1:3] = position
-	set_state!(system, particle, particle_state, system_state = system_state)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	if state == nothing
+		state = system.state
+	end
+	#particle_state = get_state(system, particle, system_state = system_state)
+	#particle_state[1:3] = position
+	#set_state!(system, particle, particle_state, system_state = system_state)
+	range = system.index_map[particle]
+	state.q[range] = position
 end
 
 function set_velocity!(system::System, particle::Particle, velocity::Vector{Float64};
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	particle_state = get_state(system, particle, system_state = system_state)
-	particle_state[4:6] = velocity
-	set_state!(system, particle, particle_state, system_state = system_state)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	if state == nothing
+		state = system.state
+	end
+	#particle_state = get_state(system, particle, system_state = system_state)
+	#particle_state[4:6] = velocity
+	#set_state!(system, particle, particle_state, system_state = system_state)
+	range = system.index_map[particle]
+	state.v[range] = velocity
 end
 
 function get_acceleration(system::System, body::Body;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 	body.is_stationary && return O
 	F = O
 	for force in system.forces
-		F += compute_force(system, force, body, system_state = system_state)
+		F += compute_force(system, force, body, state = state)
 	end
 
 	a = F / body.mass
-
+	return a
+	#=
 	if body.motion_lock == O
 		return a
 	else
 		return dot(a, body.motion_lock) * body.motion_lock / norm(body.motion_lock)^2
 	end
+	=#
 end
 
+#=
 function get_state_flow(system::System, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	v = get_velocity(system, particle, system_state = system_state)
@@ -100,13 +136,14 @@ function get_a_state(system::System, particle::Particle;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
 	return get_acceleration(system, particle, system_state = system_state)
 end
-
+=#
 
 
 ###############################################################################
 # Rigid Bodies
 ###############################################################################
 
+#=
 @kwdef struct RigidBody <: Body
 	uuid::UUID = uuid4()
 	mass::Float64 = 1.0
@@ -321,3 +358,4 @@ function nearby_particles(chunk_grid::Union{ChunkGrid,Nothing}, particle::Partic
 
     return particles
 end
+=#
