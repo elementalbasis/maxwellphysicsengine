@@ -139,7 +139,7 @@ function compute_force(system::System, force::WallContact, particle::Particle;
 	end
 end
 
-#=
+
 
 # Modulated Wall Contact
 
@@ -147,19 +147,30 @@ end
 @kwdef struct ModulatedWallContact <: Force
 	k = 1
 	b_max = 0.001
-	sensitivity = 0.001
-	energy_target = 0.01
+	#sensitivity = 0.001
+	#target_temperature = 300
+	thermostat::Thermostat = Thermostat()
 	n = O # A unit vector that points in the direction of the allowed side
 	p = O # A point on the plane
 end
-entity_state_size(force::ModulatedWallContact) = 1
+#entity_state_size(force::ModulatedWallContact) = 1
 
+#=
 function get_modulated_wall_contact_activation(system::System, force::ModulatedWallContact;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	entity_state = get_state(system, force, system_state = system_state)
-	return entity_state[1]
-end
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	if state == nothing
+		state = system.state
+	end
 
+	range = system.index_map[force]
+	#entity_state = get_state(system, force, state = state)
+	#return entity_state[1]
+	return state.q[range][1]
+end
+=#
+
+#=
 function set_modulated_wall_contact_activation!(system::System,
 		force::ModulatedWallContact, activation::Float64;
 		system_state::Union{Vector{Float64},Nothing} = nothing)
@@ -171,15 +182,18 @@ function get_state_flow(system::System, force::ModulatedWallContact;
 	K = get_average_kinetic_energy(system, system_state = system_state)
 	return [force.sensitivity * (K - force.energy_target)]
 end
+=#
 
 function compute_force(system::System, force::ModulatedWallContact, particle::Particle;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	ra = get_position(system, particle, system_state = system_state)
-	va = get_velocity(system, particle, system_state = system_state)
+#		state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	ra = get_position(system, particle, state = state)
+	va = get_velocity(system, particle, state = state)
 	Ra = particle.radius
 	s = dot(force.n, (ra - force.p))
-	q = get_modulated_wall_contact_activation(system, force, system_state = system_state)
-	b = force.b_max * logistic(q)
+	#q = get_modulated_wall_contact_activation(system, force, system_state = system_state)
+	b = force.b_max * get_thermostat_signal(system, force.thermostat, state = state)
+	#b = force.b_max * logistic(q)
 	if (s > 0)
 		return O
 	else
@@ -188,7 +202,7 @@ function compute_force(system::System, force::ModulatedWallContact, particle::Pa
 end
 
 
-
+#=
 # Modulated Spring
 
 @kwdef struct ModulatedSpring <: Force

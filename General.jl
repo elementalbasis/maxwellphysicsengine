@@ -24,6 +24,7 @@ abstract type Impulse <: Entity end
 abstract type Parameter <: Entity end
 entity_state_size(entity::Entity) = 0
 degrees_of_freedom(entity::Entity) = 0
+no_qstate(entity::Entity) = false
 
 @kwdef mutable struct State
 	q::Vector{Float64} = []
@@ -36,7 +37,7 @@ end
 	forces::Vector{Force} = []
 	#impulses::Vector{Impulse} = []
 	bodies::Vector{Body} = []
-	#parameters::Vector{Parameter} = []
+	parameters::Vector{Parameter} = []
 	entities::Vector{Entity} = []
 
 	evaluation_counter::Int64 = 0
@@ -72,6 +73,7 @@ function register!(system::System, entity::Entity)
 	push!(system.entities, entity)
 	entity isa Force && push!(system.forces, entity)
 	entity isa Body && push!(system.bodies, entity)
+	entity isa Parameter && push!(system.parameters, entity)
 
 	n = degrees_of_freedom(entity)
 	n == 0 && return
@@ -166,3 +168,58 @@ function reconstruct_state(system::System, q_state, v_state)
     return state
 end
 =#
+
+function get_qstate(system::System, entity::Entity;
+		state::Union{State,Nothing} = nothing)
+	if degrees_of_freedom(entity) == 0
+		return nothing
+	elseif state == nothing
+		state = system.state
+	end
+
+	range = system.index_map[entity]
+	return state.q[range]
+end
+
+function get_vstate(system::System, entity::Entity;
+		state::Union{State,Nothing} = nothing)
+	if degrees_of_freedom(entity) == 0
+		return nothing
+	elseif state == nothing
+		state = system.state
+	end
+
+	range = system.index_map[entity]
+	return state.v[range]
+end
+
+function set_qstate!(system::System, entity::Entity, qstate::Vector{Float64};
+		state::Union{State,Nothing} = nothing)
+	if degrees_of_freedom(entity) == 0
+		return
+	elseif state == nothing
+		state = system.state
+	end
+
+	range = system.index_map[entity]
+	state.q[range] = qstate
+end
+
+function reset_qstate!(system::System, entity::Entity;
+		state::Union{State,Nothing} = nothing)
+	n = degrees_of_freedom(entity)
+	n == 0 && return
+	set_qstate!(system, entity, zeros(n), state = state)
+end
+
+function set_vstate!(system::System, entity::Entity, vstate::Vector{Float64};
+		state::Union{State,Nothing} = nothing)
+	if degrees_of_freedom(entity) == 0
+		return
+	elseif state == nothing
+		state = system.state
+	end
+
+	range = system.index_map[entity]
+	state.v[range] = vstate
+end

@@ -6,6 +6,7 @@ packages = [
 	"StatsFuns",
 	"Rotations",
 	"ArgParse",
+	"Distributions",
 	]
 
 for package in packages

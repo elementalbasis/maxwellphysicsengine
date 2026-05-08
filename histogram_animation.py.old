@@ -1,0 +1,84 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.animation import FuncAnimation
+
+df = pd.read_csv("out.tsv", sep="\t")
+df = df.drop_duplicates()
+
+# Settings
+bins = 40
+fps = 30
+
+# Precompute frames by ordinal time step
+times = np.sort(df["t"].unique())
+
+frames = []
+for i, t in enumerate(times):
+    d = df[df["t"] == t]
+    vx = d["vx"].to_numpy()
+    frames.append((i, t, vx))
+
+# Fixed histogram range
+vx_all = df["vx"].to_numpy()
+vxmin, vxmax = vx_all.min(), vx_all.max()
+
+vmax = max(abs(vxmin), abs(vxmax))
+hist_range = (-vmax, vmax)
+
+# Fixed y-axis
+max_count = 0
+for _, _, vx in frames:
+    counts, _ = np.histogram(vx, bins=bins, range=hist_range)
+    max_count = max(max_count, counts.max())
+
+fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
+
+def init():
+    ax.clear()
+    ax.set_xlim(*hist_range)
+    ax.set_ylim(0, max_count * 1.1)
+    ax.set_xlabel("v_x")
+    ax.set_ylabel("Count")
+    return []
+
+def update(frame):
+    step, t, vx = frames[frame]
+
+    ax.clear()
+
+    counts, edges = np.histogram(vx, bins=bins, range=hist_range)
+
+    ax.bar(
+        edges[:-1],
+        counts,
+        width=np.diff(edges),
+        align="edge",
+    )
+
+    ax.set_xlim(*hist_range)
+    ax.set_ylim(0, max_count * 1.1)
+    ax.set_xlabel("v_x")
+    ax.set_ylabel("Count")
+    ax.set_title(f"Histogram of v_x, step = {step}, t = {t:.3f}")
+
+    return []
+
+ani = FuncAnimation(
+    fig,
+    update,
+    frames=len(frames),
+    init_func=init,
+    interval=1000 / fps,
+    blit=False,
+)
+
+ani.save(
+    "vx_histogram.mp4",
+    fps=fps,
+    dpi=150,
+    bitrate=2500,
+    extra_args=["-pix_fmt", "yuv420p"],
+)
+
+# plt.show()

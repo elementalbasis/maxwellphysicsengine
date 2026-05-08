@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 
 INPUT = "out.tsv"
-CHUNK_ROWS = 10_000_000
+CHUNK_ROWS = 7_200_000
 
 # Box limits
 L = 1.1
@@ -27,9 +27,14 @@ def make_video(df, chunk_index):
         colors = np.full((len(d), 4), [0, 0, 1, 1.0])
         colors[d["id"].isin(red_ids).to_numpy()] = [1, 0, 0, 1.0]
 
-        K = 0.5 * (d["vx"]**2 + d["vy"]**2 + d["vz"]**2).sum() * 1e-3
 
-        frames.append((t, xy, colors, K))
+        Kx =0.5 * (d["vx"]**2).sum() * 1e-3
+        Ky =0.5 * (d["vy"]**2).sum() * 1e-3
+        Kz =0.5 * (d["vz"]**2).sum() * 1e-3
+        #K = 0.5 * (d["vx"]**2 + d["vy"]**2 + d["vz"]**2).sum() * 1e-3
+        K = Kx + Ky + Kz
+
+        frames.append((t, xy, colors, K, Kx, Ky, Kz))
 
     fig, ax = plt.subplots(figsize=(6, 6), dpi=300)
 
@@ -61,12 +66,12 @@ def make_video(df, chunk_index):
         return scat, info_text
 
     def update(frame):
-        t, xy, colors, K = frames[frame]
+        t, xy, colors, K, Kx, Ky, Kz = frames[frame]
 
         scat.set_offsets(xy)
         scat.set_facecolors(colors)
 
-        info_text.set_text(f"t = {t:.3f} seconds\nK = {K:.1f} joules")
+        info_text.set_text(f"t = {t:.3f} seconds\nK = {K:.1f} joules\nKx = {Kx:.1f} joules\nKy = {Ky:.1f} joules\nKz = {Kz:.1f} joules")
 
         return scat, info_text
 
@@ -83,10 +88,10 @@ def make_video(df, chunk_index):
 
     ani.save(
         output,
-        fps=15,
+        fps=30,
         dpi=300,
-        bitrate=1800,
-        extra_args=["-pix_fmt", "yuv420p"],
+        #bitrate=20000,
+        extra_args=["-crf", "18", "-pix_fmt", "yuv420p", "-preset", "slow"],
     )
 
     plt.close(fig)

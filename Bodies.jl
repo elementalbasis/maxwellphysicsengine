@@ -45,6 +45,7 @@ end
 function get_position(system::System, particle::Particle;
 #		system_state::Union{Vector{Float64},Nothing} = nothing)
 		state::Union{State,Nothing} = nothing)
+#=
 	if state == nothing
 		state = system.state
 	end
@@ -52,11 +53,14 @@ function get_position(system::System, particle::Particle;
 	#return particle_state[1:3]
 	range = system.index_map[particle]
 	return state.q[range]
+=#
+	return get_qstate(system, particle, state = state)
 end
 
 function get_velocity(system::System, particle::Particle;
 #		system_state::Union{Vector{Float64},Nothing} = nothing)
 		state::Union{State,Nothing} = nothing)
+#=
 	if state == nothing
 		state = system.state
 	end
@@ -64,6 +68,8 @@ function get_velocity(system::System, particle::Particle;
 	#return particle_state[4:6]
 	range = system.index_map[particle]
 	return state.v[range]
+=#
+	return get_vstate(system, particle, state = state)
 end
 
 #=
@@ -81,6 +87,7 @@ end
 function set_position!(system::System, particle::Particle, position::Vector{Float64};
 #		system_state::Union{Vector{Float64},Nothing} = nothing)
 		state::Union{State,Nothing} = nothing)
+#=
 	if state == nothing
 		state = system.state
 	end
@@ -89,11 +96,14 @@ function set_position!(system::System, particle::Particle, position::Vector{Floa
 	#set_state!(system, particle, particle_state, system_state = system_state)
 	range = system.index_map[particle]
 	state.q[range] = position
+=#
+	set_qstate!(system, particle, position, state = state)
 end
 
 function set_velocity!(system::System, particle::Particle, velocity::Vector{Float64};
 #		system_state::Union{Vector{Float64},Nothing} = nothing)
 		state::Union{State,Nothing} = nothing)
+#=
 	if state == nothing
 		state = system.state
 	end
@@ -102,18 +112,22 @@ function set_velocity!(system::System, particle::Particle, velocity::Vector{Floa
 	#set_state!(system, particle, particle_state, system_state = system_state)
 	range = system.index_map[particle]
 	state.v[range] = velocity
+=#
+	set_vstate!(system, particle, velocity, state = state)
 end
 
-function get_acceleration(system::System, body::Body;
-#		system_state::Union{Vector{Float64},Nothing} = nothing)
+function get_astate(system::System, particle::Particle;
 		state::Union{State,Nothing} = nothing)
-	body.is_stationary && return O
+#function get_acceleration(system::System, body::Body;
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+#		state::Union{State,Nothing} = nothing)
+	particle.is_stationary && return O
 	F = O
 	for force in system.forces
-		F += compute_force(system, force, body, state = state)
+		F += compute_force(system, force, particle, state = state)
 	end
 
-	a = F / body.mass
+	a = F / particle.mass
 	return a
 	#=
 	if body.motion_lock == O
@@ -122,6 +136,11 @@ function get_acceleration(system::System, body::Body;
 		return dot(a, body.motion_lock) * body.motion_lock / norm(body.motion_lock)^2
 	end
 	=#
+end
+
+function get_acceleration(system::System, particle::Particle;
+		state::Union{State,Nothing} = nothing)
+	return get_astate(system, particle, state = state)
 end
 
 #=
@@ -227,12 +246,16 @@ function set_angular_velocity!(system::System, rb::RigidBody,
 	rb_state[11:13] = angular_velocity
 	set_state!(system, rb, rb_state, system_state = system_state)
 end
+=#
 
 function get_total_kinetic_energy(system::System;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
 	K = 0
 	for b in system.bodies
-		v = get_velocity(system, b, system_state = system_state)
+		b isa Particle || continue
+
+		v = get_velocity(system, b, state = state)
 		m = b.mass
 		K += 1/2 * m * dot(v,v)
 	end
@@ -241,13 +264,54 @@ function get_total_kinetic_energy(system::System;
 end
 
 function get_average_kinetic_energy(system::System;
-		system_state::Union{Vector{Float64},Nothing} = nothing)
-	K = get_total_kinetic_energy(system, system_state = system_state)
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	K = get_total_kinetic_energy(system, state = state)
 	N = length(system.bodies)
 	return K / N
 end
 
+function get_temperature(system::System;
+		state::Union{State,Nothing} = nothing)
+	K = get_average_kinetic_energy(system, state = state)
+	# 1/2 * m * v^2 = 3/2 * k * T
+	global k_boltzmann
+	T = 2/3 * K / k_boltzmann
+	return T
+end
 
+function get_total_kinetic_energy_derivative(system::System;
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	dK = 0
+	for b in system.bodies
+		b isa Particle || continue
+
+		v = get_velocity(system, b, state = state)
+		a = get_acceleration(system, b, state = state)
+		m = b.mass
+		dK += m * dot(v,a)
+	end
+
+	return dK
+end
+
+function get_average_kinetic_energy_derivative(system::System;
+#		system_state::Union{Vector{Float64},Nothing} = nothing)
+		state::Union{State,Nothing} = nothing)
+	dK = get_total_kinetic_energy_derivative(system, state = state)
+	N = length(system.bodies)
+	return dK / N
+end
+function get_temperature_derivative(system::System;
+		state::Union{State,Nothing} = nothing)
+	dK = get_average_kinetic_energy_derivative(system, state = state)
+	global k_boltzmann
+	dT = dK * 2/3 / k_boltzmann
+	return dT
+end
+
+#=
 ###############################################################################
 # Anchors
 ###############################################################################

@@ -3,25 +3,29 @@ include("Main.jl")
 N = 3000
 r = 1e-2
 m = 1e-3
-k = 100
+k = 10000
+dt = 1e-4
 
-S = System()
+energy_target = 0.5
+sensitivity = 0.01
+
+S = System(dt = dt)
 H = ChunkGrid(chunk_size = 10*r)
 
 for i = 1:N
 	if i == N
 		create_particle!(S, radius = r, mass = m, velocity = 10*Y*i/N)
 	else
-		create_particle!(S, radius = r, mass = m, velocity = (5 + i/N)*X + Z * i/N, position = i/N * Z)
+		create_particle!(S, radius = r, mass = m, velocity = (5 + i/N/1000)*X + Z * i/N/1000, position = i/N * Z/1000)
 	end
 end
 
-A = WallContact(n = X, p = -X, k = k)
-B = WallContact(n = Y, p = -Y, k = k)
-C = WallContact(n = Z, p = -Z, k = k)
-D = WallContact(n = -X, p = X, k = k)
-E = WallContact(n = -Y, p = Y, k = k)
-F = WallContact(n = -Z, p = Z, k = k)
+A = ModulatedWallContact(n = X, p = -X, k = k, energy_target = energy_target, sensitivity = sensitivity)
+B = ModulatedWallContact(n = Y, p = -Y, k = k, energy_target = energy_target, sensitivity = sensitivity)
+C = ModulatedWallContact(n = Z, p = -Z, k = k, energy_target = energy_target, sensitivity = sensitivity)
+D = ModulatedWallContact(n = -X, p = X, k = k, energy_target = energy_target, sensitivity = sensitivity)
+E = ModulatedWallContact(n = -Y, p = Y, k = k, energy_target = energy_target, sensitivity = sensitivity)
+F = ModulatedWallContact(n = -Z, p = Z, k = k, energy_target = energy_target, sensitivity = sensitivity)
 G = ParticleContact(k = k, chunk_grid = ChunkGrid(chunk_size = 10 * r))
 register!(S, A, B, C, D, E, F, G)
 

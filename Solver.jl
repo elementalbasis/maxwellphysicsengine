@@ -63,9 +63,11 @@ function ode_function!(a::Vector{Float64}, v::Vector{Float64}, q::Vector{Float64
 
 	for entity in system.entities
 		degrees_of_freedom(entity) == 0 && continue
+		no_qstate(entity) && reset_qstate!(system, entity, state = state)
 
 		range = system.index_map[entity]
-		a[range] .= get_acceleration(system, entity, state = state)
+		#a[range] .= get_acceleration(system, entity, state = state)
+		a[range] = get_astate(system, entity, state = state)
 	end
 
 	system.evaluation_counter += 1
