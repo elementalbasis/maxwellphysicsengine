@@ -7,6 +7,7 @@ packages = [
 	"Rotations",
 	"ArgParse",
 	"Distributions",
+	"OrdinaryDiffEqSymplecticRK",
 	]
 
 for package in packages
