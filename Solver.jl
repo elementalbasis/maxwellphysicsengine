@@ -62,6 +62,9 @@ function ode_function!(a::Vector{Float64}, v::Vector{Float64}, q::Vector{Float64
 	state = State(q = q, v = v, n = length(q))
 
 	for entity in system.entities
+		if entity isa Thermometer
+			update_temperature!(system, entity, state = state)
+		end
 		degrees_of_freedom(entity) == 0 && continue
 		no_qstate(entity) && reset_qstate!(system, entity, state = state)
 

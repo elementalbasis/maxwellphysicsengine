@@ -53,3 +53,32 @@ function get_thermostat_signal(system::System, thermostat::Thermostat;
 	#return logistic(A / thermostat.sensitivity)
 	return logistic(A)
 end
+
+
+
+
+@kwdef mutable struct Thermometer <: Entity
+	temperature::Float64 = 0.0
+	f::Float64 = 3.0
+end
+degrees_of_freedom(thermometer::Thermometer) = 0
+
+function update_temperature!(system::System, thermometer::Thermometer;
+		state::Union{State,Nothing} = nothing)
+	E = get_average_kinetic_energy(system, state = state)
+	global k_boltzmann
+	T = 2 * E / k_boltzmann / thermometer.f
+	thermometer.temperature = T
+end
+
+function create_thermometer!(system::System; f::Float64 = 3.0)
+	thermometer = Thermometer(f = f)
+	register!(S, thermometer)
+	update_temperature!(system, thermometer)
+	return thermometer
+end
+
+function get_temperature(system::System, thermometer::Thermometer;
+		state::Union{State,Nothing} = nothing)
+	return thermometer.temperature
+end

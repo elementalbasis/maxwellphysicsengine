@@ -202,6 +202,39 @@ function compute_force(system::System, force::ModulatedWallContact, particle::Pa
 end
 
 
+
+# Thermal Wall
+
+@kwdef struct ThermalWall <: Force
+	k = 1
+	b_max = 1
+	#sensitivity = 0.001
+	target_temperature = 300
+	sensitivity = 1e-4
+	thermometer::Thermometer = Thermometer()
+	n = O # A unit vector that points in the direction of the allowed side
+	p = O # A point on the plane
+end
+
+function compute_force(system::System, force::ThermalWall, particle::Particle;
+		state::Union{State,Nothing} = nothing)
+	ra = get_position(system, particle, state = state)
+	va = get_velocity(system, particle, state = state)
+	Ra = particle.radius
+	s = dot(force.n, (ra - force.p))
+	#q = get_modulated_wall_contact_activation(system, force, system_state = system_state)
+	T = get_temperature(system, force.thermometer, state = state)
+	T0 = force.target_temperature
+	u = (T - T0) / T0 / force.sensitivity
+	#b = force.b_max * get_temperature(system, force.thermometer, state = state)
+	b = force.b_max * tanh(u)
+	if (s > 0)
+		return O
+	else
+		return force.n * (-s) * force.k - b * va
+	end
+end
+
 #=
 # Modulated Spring
 
