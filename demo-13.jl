@@ -55,7 +55,7 @@ for i = 1:N
 	x = rand(Uniform(-L,L))
 	y = rand(Uniform(-L,L))
 	z = rand(Uniform(-L,L))
-	v = (1000 + i/N/1000) * X
+	v = (100 + i/N/1000) * X
 	create_particle!(S, radius = r, mass = m, velocity = v, position = x*X+y*Y+z*Z)
 end
 
